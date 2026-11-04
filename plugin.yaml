@@ -1,5 +1,5 @@
 name: file-actions
-version: 1.0.0
+version: 1.1.0
 description: "Show in Finder / Preview / Copy path / Copy text under every file the agent delivers — in the desktop app and the browser Webapp."
 author: "Abdullah Pesteli (@AbdullahPesteli)"
 license: MIT

@@ -89,3 +89,33 @@ def test_quotes_in_path_are_escaped(tmp_path):
 def test_hook_fails_open(monkeypatch):
     monkeypatch.setattr(hook, "rewrite_deliveries", lambda *a, **k: 1 / 0)
     assert hook.transform_llm_output("MEDIA:/x") is None
+
+
+def test_consecutive_images_become_one_gallery(tmp_path):
+    imgs = []
+    for n in "abc":
+        p = tmp_path / f"{n}.jpg"
+        p.write_bytes(b"\0")
+        imgs.append(p)
+    text = "Covers:\n" + "\n".join(f"MEDIA:{p}" for p in imgs) + "\nDone."
+    out = hook.rewrite_deliveries(text)
+    assert out.count("::file-actions{") == 1
+    assert '::file-actions{paths="' + "|".join(map(str, imgs)) + '"}' in out
+    assert "MEDIA:" not in out          # players dropped: the gallery shows them
+    assert out.startswith("Covers:") and out.rstrip().endswith("Done.")
+
+
+def test_prose_between_images_keeps_separate_cards(tmp_path):
+    a, b = tmp_path / "a.png", tmp_path / "b.png"
+    a.write_bytes(b"\0"); b.write_bytes(b"\0")
+    out = hook.rewrite_deliveries(f"MEDIA:{a}\nThis one is warmer:\nMEDIA:{b}")
+    assert "paths=" not in out
+    assert out.count("::file-actions{path=") == 2
+
+
+def test_videos_are_never_grouped(tmp_path):
+    a, b = tmp_path / "a.mp4", tmp_path / "b.mp4"
+    a.write_bytes(b"\0"); b.write_bytes(b"\0")
+    out = hook.rewrite_deliveries(f"MEDIA:{a}\nMEDIA:{b}")
+    assert "paths=" not in out
+    assert f"MEDIA:{a}" in out and f"MEDIA:{b}" in out

@@ -129,7 +129,50 @@ def rewrite_deliveries(response_text: str, platform: str = "", **_kwargs):
                 continue
             seen.add(line)
         dedup.append(line)
-    return "\n".join(dedup)
+    return _group_galleries("\n".join(dedup))
+
+
+_ISLAND_RE = re.compile(r'^::file-actions\{path="((?:[^"\\]|\\.)*)"\}$')
+# Images only: a video keeps its own inline player + card (grouping would drop playback).
+GALLERY_EXT = {"png", "jpg", "jpeg", "gif", "webp", "bmp", "heic", "heif", "avif", "tif", "tiff"}
+
+
+def _groupable(path: str) -> bool:
+    return "|" not in path and _ext(path.replace('\\"', '"')) in GALLERY_EXT
+
+
+def _group_galleries(text: str) -> str:
+    """Collapse 2+ consecutive image/video deliveries into one ``paths=`` gallery island.
+
+    Consecutive means only blank lines and their inline-player ``MEDIA:`` lines sit between them.
+    The player lines are dropped for grouped items (the gallery shows them); a run is never
+    grouped across prose, so a sentence between two images keeps two separate cards.
+    """
+    lines = text.split("\n")
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        run: list[str] = []
+        j = i
+        while j < len(lines):
+            s = lines[j].strip()
+            m = _ISLAND_RE.match(s)
+            if m and _groupable(m.group(1)):
+                run.append(m.group(1))
+                j += 1
+                continue
+            d = _DELIVERY_RE.match(lines[j])
+            if not s or (d and _groupable(_normalize(d.group(1)))):
+                j += 1
+                continue
+            break
+        if len(run) >= 2:
+            out.extend(["", '::file-actions{paths="' + "|".join(run) + '"}', ""])
+            i = j
+            continue
+        out.append(lines[i])
+        i += 1
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip("\n") + ("\n" if text.endswith("\n") else "")
 
 
 def transform_llm_output(response_text=None, **kwargs):

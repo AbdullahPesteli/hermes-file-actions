@@ -66,3 +66,53 @@ def test_linux_reveal_opens_parent(monkeypatch, tmp_path):
     f.write_text("x")
     monkeypatch.setattr(api.shutil, "which", lambda n: "/usr/bin/xdg-open" if n == "xdg-open" else None)
     assert api.reveal_command(str(f), platform="linux") == ["/usr/bin/xdg-open", str(tmp_path)]
+
+
+def test_info_missing_is_soft(client):
+    r = client.get("/api/plugins/file-actions/info", params={"path": "/no/such/x.mp4"})
+    assert r.status_code == 200
+    assert r.json()["exists"] is False and r.json()["kind"] == "video"
+
+
+def test_info_existing_file(client, tmp_path):
+    f = tmp_path / "notes.md"
+    f.write_text("a\nb\n")
+    j = client.get("/api/plugins/file-actions/info", params={"path": str(f)}).json()
+    assert j["exists"] and j["ext"] == "md" and j["size"] == 4
+
+
+def test_open_with_refuses_app_the_os_did_not_offer(client, tmp_path, monkeypatch):
+    f = tmp_path / "x.txt"
+    f.write_text("x")
+    monkeypatch.setattr(api.sys, "platform", "darwin")
+    monkeypatch.setattr(api, "list_apps", lambda p, limit=8: [{"name": "TextEdit", "path": "/System/Applications/TextEdit.app", "default": True}])
+    bad = client.post("/api/plugins/file-actions/open-with", json={"path": str(f), "app": "/bin/sh"})
+    assert bad.status_code == 400 and bad.json()["detail"] == api.BAD_APP
+    assert client.calls == []
+    ok = client.post("/api/plugins/file-actions/open-with", json={"path": str(f), "app": "/System/Applications/TextEdit.app"})
+    assert ok.status_code == 200
+    assert client.calls[-1] == ["/usr/bin/open", "-a", "/System/Applications/TextEdit.app", str(f)]
+
+
+def test_reveal_many_rejects_missing(client, tmp_path):
+    f = tmp_path / "a.jpg"
+    f.write_text("x")
+    r = client.post("/api/plugins/file-actions/reveal-many", json={"paths": [str(f), "/no/such.jpg"]})
+    assert r.status_code == 404 and client.calls == []
+
+
+def test_rank_apps_default_first_then_known_tools_and_noise_dropped():
+    paths = ["/Applications/QuickTime Player.app", "/Applications/Books.app", "/Applications/VLC.app",
+             "/Applications/PhotoSync.app", "/Applications/IINA.app", "/Users/x/Library/Caches/ms-playwright/c.app"]
+    out = api.rank_apps(paths, "/Applications/VLC.app", "video")
+    names = [a["name"] for a in out]
+    assert names[0] == "VLC" and out[0]["default"] is True
+    assert names.index("QuickTime Player") < names.index("IINA")
+    assert "Books" not in names and "PhotoSync" not in names and "c" not in names
+
+
+def test_rank_apps_offers_installed_undeclared_pro_tool(monkeypatch):
+    resolve = "/Applications/DaVinci Resolve/DaVinci Resolve.app"
+    monkeypatch.setattr(api.os.path, "exists", lambda p: p == resolve)
+    names = [a["name"] for a in api.rank_apps(["/Applications/QuickTime Player.app"], None, "video")]
+    assert names == ["QuickTime Player", "DaVinci Resolve"]

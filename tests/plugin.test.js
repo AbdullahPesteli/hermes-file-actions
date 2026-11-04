@@ -17,6 +17,22 @@ test('default export registers both directive names', () => {
   const render = regs[0].data.render
   expect(render({ attrs: { path: 'not-a-path' } })).toBeNull()
   expect(render({ attrs: { path: '/tmp/x.txt' } })).not.toBeNull()
+  expect(render({ attrs: { paths: '/a.jpg|/b.jpg' } })).not.toBeNull()
+})
+
+test('parsePaths: single, gallery, junk', () => {
+  expect(mod.parsePaths({ path: '/a/b.txt' })).toEqual(['/a/b.txt'])
+  expect(mod.parsePaths({ paths: '/a.jpg|/b.jpg| |nope' })).toEqual(['/a.jpg', '/b.jpg'])
+  expect(mod.parsePaths({})).toEqual([])
+})
+
+test('meta line formatting', () => {
+  const t = mod.makeT('tr')
+  expect(mod.formatBytes(4404019)).toBe('4.2 MB')
+  expect(mod.formatDuration(8.7)).toBe('0:09')
+  expect(mod.formatDuration(3725)).toBe('1:02:05')
+  expect(mod.metaLine({ kind: 'video', ext: 'mp4', duration: 8.7, width: 1024, height: 576, size: 4404019 }, t)).toBe('MP4 · 0:09 · 1024×576 · 4.2 MB')
+  expect(mod.metaLine({ kind: 'folder', items: 3 }, t)).toBe('Klasör · 3 öğe')
 })
 
 test('normalizePath handles quotes, file:// and percent-encoding', () => {
@@ -68,4 +84,11 @@ test('reveal: backend 404 file_not_found -> "not found"; other 404 -> backend mi
   await expect(mod.doReveal(missing, t, '/x')).rejects.toThrow('File not found on this computer')
   const unmounted = ctxWith(false, async () => { throw new Error('404: {"detail":"Not Found"}') })
   await expect(mod.doReveal(unmounted, t, '/x')).rejects.toThrow(/Backend route missing/)
+})
+
+test('frame label reads m:ss·ff and never overflows', () => {
+  expect(mod.frameLabel(2.0836, 24)).toBe('0:02·02')
+  expect(mod.frameLabel(0, 24)).toBe('0:00·00')
+  expect(mod.frameLabel(61.999, 25)).toBe('1:01·24')
+  expect(mod.frameLabel(NaN, 24)).toBe('0:00·00')
 })
