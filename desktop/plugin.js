@@ -182,7 +182,7 @@ async function backendReveal(ctx, t, p) {
     const msg = String((e && e.message) || e || '')
     // The route answers 404 {"detail":"file_not_found"} for a missing file; any other 404
     // means the route itself is not mounted (agent plugin disabled / not installed).
-    if (msg.indexOf('file_not_found') !== -1 || /"detail":"not found"/i.test(msg)) throw new Error(t('notFound'))
+    if (msg.indexOf('file_not_found') !== -1) throw new Error(t('notFound'))
     if (/^404\b/.test(msg)) throw new Error(t('noBackend'))
     if (msg === t('serverTimeout')) throw e
     throw new Error(t('serverFailed', msg.slice(0, 160)))
