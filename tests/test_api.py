@@ -34,7 +34,7 @@ def test_reveal_existing_file(client, tmp_path):
     f.write_text("x")
     r = client.post("/api/plugins/file-actions/reveal", json={"path": str(f)})
     assert r.status_code == 200 and r.json()["ok"] is True
-    assert client.calls and str(f) in " ".join(client.calls[0])
+    assert client.calls == [api.reveal_command(str(f))]
 
 
 def test_missing_file_is_404_with_stable_code(client):
