@@ -27,8 +27,11 @@ hermes plugins install AbdullahPesteli/hermes-file-actions
 hermes plugins enable file-actions
 ```
 
-Then restart the gateway once (a running gateway keeps its old hook registry) and click
-**Rescan** in *Capabilities → Plugins* (or restart the desktop app) so the desktop half is copied.
+Then:
+
+1. restart the gateway once (a running gateway keeps its old hook registry and API routes);
+2. in the desktop app open *Capabilities → Plugins*, click **Rescan**, and switch
+   **File actions** on — the desktop half of a package ships off by default.
 
 ## What is in the package
 
