@@ -1,0 +1,11 @@
+{
+  "name": "file-actions",
+  "label": "File actions",
+  "description": "Backend for the file-actions island: reveal/open a file on the serving machine when the UI runs in a browser.",
+  "icon": "Folder",
+  "version": "1.0.0",
+  "tab": {
+    "hidden": true
+  },
+  "api": "plugin_api.py"
+}

@@ -1,0 +1,13 @@
+name: tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: oven-sh/setup-bun@v2
+      - name: Python (hook + backend)
+        run: uv run --no-project --python 3.12 --with pytest --with fastapi --with httpx python -m pytest -q tests
+      - name: JS (desktop island logic)
+        run: bun test tests/plugin.test.js
